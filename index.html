@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="eng">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>Phaser Platformer</title>
+        <script src="phaser.min.js"></script>
+    </head>
+
+    <body>
+        <script type="text/javascript">
+            var config ={
+                type: Phaser.AUTO,
+                width: 800,
+                height: 400,
+                trasparent: true,
+                backgroundColor: '#0000FF',
+                physics:{
+                    default: 'arcade',
+                    arcade:{
+                        gravity: {y: 1000}
+                    }
+                },
+                scene:{
+                    preload: preload,
+                    create: create,
+                    update: update
+                }
+            };
+
+            //set some variables
+            var player,
+                coins,
+                platforms,
+                collapsingPlatforms,
+                baddie,
+                heartOutlines =[],
+                hearts = [],
+                maxHearts = 3,
+                vulnerableTime = 1000,
+                cursors,
+                score = 0,
+                scoreText,
+                scoreCoin,
+                baddies,
+                scoreCoinTimeline,
+                coinTweens=[],
+                camera,
+                hud,
+                jumping = false,
+                doubleJumping = false,
+                jumpVelocity = -400,
+                acceleration = 600;
+
+            var game = new Phaser.Game(config);
+
+            function preload(){
+                //set all the sprites
+                this.load.setBaseURL('assets/');
+                this.load.image('ground', 'platform.png');
+                this.load.image('floor', 'floor.png');
+                this.load.image('bg_1', 'parallax.png');
+                this.load.image('collapsing-platform', 'collapsing-platform.jpg');
+                this.load.image('coin', 'star.png');
+                this.load.spritesheet('baddie', 'baddie.png', {frameWidth: 32, frameHeight: 26});
+                this.load.image('heart', 'heart.png');
+                this.load.image('heart-filled', 'heart-filled.png');
+                this.load.spritesheet('hero', 'dude.png',{frameWidth: 32, frameHeight:48});
+            
+            }
+
+            function create(){
+                //set the parallax
+                this.bg_1=this.add.tileSprite(0,0, game.config.width, game.config.height, 'bg_1');
+                this.bg_1.alpha = 0.5;
+                this.bg_1.setOrigin(0,0);
+                this.bg_1.setScrollFactor(0);
+
+                //set the platforms
+                platforms = this.physics.add.staticGroup();
+
+                platforms.create(1220, 400, 'floor');
+                platforms.create(400, 400, 'floor');
+                platforms.create(150, 240, 'ground');
+                platforms.create(860, 190, 'ground');
+                platforms.create(1440, 100, 'ground');
+
+                //set collapsing platforms
+                collapsingPlatforms = this.physics.add.staticGroup();
+
+                collapsingPlatforms.create(390, 290, 'collapsing-platform');
+                collapsingPlatforms.create(550, 205, 'collapsing-platform');
+
+                collapsingPlatforms.create(460, 450, 'collapsing-platform');
+                collapsingPlatforms.create(1270, 290, 'collapsing-platform');
+                collapsingPlatforms.create(1180, 256, 'collapsing-platform');
+                collapsingPlatforms.create(1093, 222, 'collapsing-platform');
+
+                //set the player
+                player = this.physics.add.sprite(200,300,'hero');
+                player.invulnerable = false;
+                player.hearts = maxHearts;
+
+                player.setCollideWorldBounds(true);
+
+                player.setBounce(0);
+                player.body.maxVelocity.x = 200;
+                player.body.maxVelocity.y = 500;
+
+                var up = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+                up.on('down', function(){
+
+                    var standing = player.body.blocked.down || player.body.touching.down;
+
+                    if (standing) {
+                        jumping = false;
+                        doubleJumping = false;
+                    }
+
+                    if (!jumping){
+                        jumping = true;
+                        doubleJumping = false;
+                        player.setVelocityY(jumpVelocity);
+                    }else if(jumping && !doubleJumping && player.body.velocity.y > - 200){
+                        doubleJumping = true;
+                        player.setVelocityY(jumpVelocity + 100);
+                    }
+
+                })
+
+
+                cursors = this.input.keyboard.createCursorKeys();
+
+                var heartOutline1 = this.add.sprite(760,38, 'heart'),
+                    heartOutline2 = this.add.sprite(720,38, 'heart'),
+                    heartOutline3 = this.add.sprite(680,38, 'heart');
+                heartOutlines =[heartOutline1, heartOutline2, heartOutline3];
+
+                heart1 = this.add.sprite(760,38, 'heart-filled');
+                heart2 = this.add.sprite(720,38, 'heart-filled');
+                heart3 = this.add.sprite(680,38, 'heart-filled');
+
+                hearts = [heart1, heart2, heart3];
+
+                baddies = this.physics.add.group();
+
+                //set the baddies & their velocity
+                baddie = baddies.create(1420, 350, 'baddie');
+                baddie.setOrigin(.5, .5);
+                baddie.setCollideWorldBounds(true);
+                baddie.body.velocity.x = -100;
+                baddie.maxDistance = 300;
+                baddie.previousX = baddie.x;
+
+                baddie = baddies.create(940, 100, 'baddie');
+                baddie.setOrigin(.5, .5);
+                baddie.setCollideWorldBounds(true);
+                baddie.body.velocity.x = -100;
+                baddie.maxDistance = 250;
+                baddie.previousX = baddie.x;
+
+                baddie = baddies.create(650, 350, 'baddie');
+                baddie.setOrigin(.5, .5);
+                baddie.setCollideWorldBounds(true);
+                baddie.body.velocity.x = -100;
+                baddie.maxDistance = 250;
+                baddie.previousX = baddie.x;
+
+                //set the coins
+                coins = this.physics.add.group({
+                    key: 'coin',
+                    repeat: 11,
+                    setXY:{x:12, y:0, stepX:140}
+                });
+
+                coins.children.iterate(function(child){
+                    child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+                });
+
+                scoreCoin = this.add.sprite(30,31, 'coin');
+                scoreCoin.setOrigin(.5, .5);
+                scoreCoin.scaleX = .8;
+                scoreCoin.scaleY = .8;
+
+                //set score text
+                scoreText = this.add.text(46, 16, '0', {fontSize: '32px', fill: '#fff'});
+
+                camera = this.cameras.main;
+                camera.setBounds(0, 0, 1630, 400);
+                camera.startFollow(player, true, 0.05, 0, -200, 120);
+
+                //create a contain for our heads up display and add some sprites
+                hud = this.add.container(0, 0, [scoreCoin, scoreText, heart1, heart2, heart3, heartOutline1, heartOutline2, heartOutline3]);
+                //lock it to the camera
+                hud.setScrollFactor(0);
+
+                //set the collisions and overlapping between elements
+                this.physics.world.setBounds(0,0,1630,400);
+                this.physics.add.collider(player, platforms);
+                this.physics.add.collider(coins, platforms);
+                this.physics.add.collider(baddies, platforms);
+                this.physics.add.collider(player, collapsingPlatforms, shakePlatform, checkOneWay, this);
+                this.physics.add.overlap(player, coins, collectCoin, null, this);
+                this.physics.add.overlap(player, baddies, hitBaddie, null, this);
+
+                //set the animations for the player
+                this.anims.create({
+                    key:"left",
+                    frames: this.anims.generateFrameNumbers("hero", {start:0, end:3}),
+                    frameRate: 10,
+                    repeat: -1
+                });
+
+                this.anims.create({
+                    key: "turn",
+                    frames:[{key: "hero", frame:4}],
+                    framerate:20
+                });
+                
+                this.anims.create({
+                    key:"right",
+                    frames: this.anims.generateFrameNumbers("hero", {start:5, end:8}),
+                    frameRate: 10,
+                    repeat: -1
+                });
+
+                //set animations for the baddie
+                this.anims.create({
+                    key:"baddie_left",
+                    frames: this.anims.generateFrameNumbers("baddie", {start:0, end:3}),
+                    frameRate: 10,
+                    repeat: -1
+                });
+
+                this.anims.create({
+                    key:"baddie_right",
+                    frames: this.anims.generateFrameNumbers("baddie", {start:4, end:7}),
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
+
+            function switchDirection(baddie) {
+                //reverse velocity so baddie moves are same speed but in opposite direction
+                baddie.body.velocity.x *= -1;
+                //reset count
+                baddie.previousX = baddie.x;
+            }
+
+            function checkOneWay(player, oneway) {
+                //if player is higher up the screen then the plaform then enable the collision
+                if (player.y < oneway.y) {
+                    return true;
+                }
+                //otherwise disable collision
+                return false;
+            }
+
+            function shakePlatform(player, platform) {
+                //only make platform shake if player is standing on it
+                if (player.body.blocked.down) {
+                    //do a little camera shake to indicate something bad is going to happen
+                    this.cameras.main.shake(200, 0.001);
+                    //we need to store the global scope here so we can keep it later
+                    var ourScene = this;
+                    //do a yoyo tween shaking the platform back and forth and up and down
+                    var tween = this.tweens.add({
+                        targets: platform,
+                        yoyo: true,
+                        repeat: 10,
+                        x: {
+                            from: platform.x,
+                            to: platform.x + 2 * 1,
+                        },
+                        ease: 'Linear',
+                        duration: 50,
+                        onComplete: function() {
+                            destroyPlatform.call(ourScene, platform);
+                        }
+                    });
+                }
+            }
+
+            function destroyPlatform(platform) {
+                var tween = this.tweens.add({
+                    targets: platform,
+                    alpha: 0,
+                    y: "+=25",
+                    ease: 'Linear',
+                    duration: 100,
+                    onComplete: function() {
+                        destroyGameObject(platform);
+                    }
+                });
+            }
+
+            function update(){
+
+                var standing = player.body.blocked.down || player.body.touching.down;
+
+                for (var i = 0; i < coinTweens.length; i++) {
+                    var tween = coinTweens[i];
+                    //if we find a tween update it to the new position of the scoreCoin
+                    if (tween) tween.updateTo('x', camera.scrollX + scoreCoin.x);
+                }
+
+                //animation for parallax bg
+                this.bg_1.tilePositionX = this.cameras.main.scrollX * .3;
+
+                //set left moving commands
+                if(cursors.left.isDown){
+                    if(standing){
+                        player.setAccelerationX(-acceleration);
+                    player.anims.play('left',true);
+                    }
+                    else{
+                        player.setAccelerationX(-acceleration/3);
+                    }
+                }
+                //set right moving commands
+                else if(cursors.right.isDown){
+                    if(standing){
+                    player.setAccelerationX(acceleration);
+                    player.anims.play('right',true);
+                    } else{
+                        player.setAccelerationX(acceleration/3);
+                    }
+                }
+                //set still and decrease acceleration
+                else{
+                    if(Math.abs(player.body.velocity.x) < 10 && Math.abs(player.body.velocity.x) > -10) {
+                        player.setVelocityX(0);
+                        player.setAccelerationX(0);
+                        player.anims.play('turn');
+                    }
+                    else{
+                        player.setAccelerationX(((player.body.velocity.x > 0) ? -1 : 1) * acceleration/3);
+                    }
+                }
+
+
+                // if (standing && cursors.up.isDown && (!jumping)) {
+                //     player.setVelocityY(jumpVelocity);
+                //     jumping = true;
+                // } else if (!cursors.up.isDown) {
+                //     if (player.body.touching.down) {
+                //         jumping = false;
+                //     }
+                // }
+
+                //if our baddies has walked as far as we've set the maxDistance, then get them to turn around
+                //loop through baddies group and for each baddie...
+                baddies.getChildren().forEach(function(theBaddie) {
+                    //check if it's time for them to turn around
+                    if (Math.abs(theBaddie.x - theBaddie.previousX) >= theBaddie.maxDistance) {
+                        switchDirection(theBaddie);
+                    }
+                }, this);
+            }
+            //set what happens when you collect coins & animation
+            function collectCoin(player, coin){
+                coin.disableBody(false, false);
+
+                var collectCoinTween = this.tweens.add({
+                    targets: coin,
+                    alpha: 0.3,
+                    angle: 720,
+                    x: scoreCoin.x,
+                    y: scoreCoin.y,
+                    scaleX: 0.8,
+                    scaleY: 0.8,
+                    ease: "Linear",
+                    duration: 500,
+                    onComplete: function() {
+                        destroyGameObject(coin);
+                        coinTweens.shift();
+                    }
+                });
+                coinTweens.push(collectCoinTween);
+                
+                if(scoreCoinTimeline){
+                    if(scoreCoinTimeline.progress == 1){
+                    animateScoreCoin(this);
+                    } else {
+                    animateScoreCoin(this);
+                    }
+                }
+                score += 1;
+                scoreText.setText(score);
+            }
+
+            function animateScoreCoin(game) {
+                scoreCoinTimeline = game.tweens.timeline({
+                    targets: scoreCoin,
+                    duration: 100,
+                    tweens: [{
+                            scaleX: 0.8,
+                            scaleY: 0.8,
+                            angle: "+=45"
+                        },
+                        {
+                            scaleX: 0.5,
+                            scaleY: 0.5,
+                            angle: "+=45"
+                        }
+                    ]
+                });
+            }
+
+            function destroyGameObject(gameObject) {
+                // Removes any game object from the screen
+                gameObject.destroy();
+            }
+
+            //set what happens when you hit a baddie
+            function hitBaddie(player, baddie){
+                if(baddie.body.touching.up){
+                    baddie.disableBody(false, false);
+                    player.setVelocityY(-200);
+
+                    var tween = this.tweens.add({
+                        targets: baddie,
+                        alpha: 0.3,
+                        scaleX: 1.5,
+                        scaleY: 1.5,
+                        ease: 'Linear',
+                        duration: 150,
+                        onComplete: function() {
+                            //remove the game object
+                            destroyGameObject(baddie);
+                        },
+                    });
+                }
+                else{
+                    if(!player.invulnerable){
+                        player.invulnerable = true;
+
+                        var currentHeartCount = player.hearts,
+                            currentHeart = hearts[currentHeartCount - 1],
+                            currentHeartOutline = heartOutlines [currentHeartCount - 1];
+
+                        var heartFade = this.tweens.add({
+                            targets: currentHeart,
+                            alpha: 0,
+                            scaleX: 0,
+                            scaleY: 0,
+                            ease: 'Linear',
+                            duration: 200
+                        });
+
+                        var heartsTimeline = this.tweens.createTimeline();
+
+                        heartsTimeline.add({
+                            targets: currentHeartOutline,
+                            scaleX: 0.5,
+                            scaleY: 0.5,
+                            ease: 'Power1',
+                            duration: 200
+                        });
+
+                        heartsTimeline.add({
+                            targets: currentHeartOutline,
+                            scaleX: 1,
+                            scaleY: 1,
+                            ease: 'Power1',
+                            duration: 200
+                        });
+
+                        heartsTimeline.play();
+
+                        player.hearts -= 1;
+
+                        if(player.hearts <= 0) {
+                            player.disableBody(false,false);
+
+                            var tween = this.tweens.add({
+                                targets: player,
+                                alpha: 0.3,
+                                scaleX: 1.1,
+                                scaleY: 1.1,
+                                angle: 90,
+                                x: player.x - 20,
+                                y: player.y - 20,
+                                ease: 'Linear',
+                                duration: 100,
+                                onComplete: function() {
+                                    restartGame(this);
+                                },
+                                onCompleteScope: this
+                            });
+                        }
+                        else{
+                            player.body.velocity.x= 0;
+                            player.body.velocity.y= -220;
+
+                            var tween = this. tweens.add({
+                                targets:player,
+                                alpha: 0.3,
+                                ease: 'Linear',
+                                duration: 200,
+                                onCompleteScope: this
+                            });
+
+                            var timer = this.time.delayedCall(vulnerableTime, playerVulnerable, [this]);
+                        }
+                    }
+                }
+            }
+
+            function playerVulnerable(game) {
+                //tween player back to 100% opacity and reset invulnerability flag
+                var death = game.tweens.add({
+                    targets: player,
+                    alpha: 1,
+                    ease: 'Linear',
+                    duration: 200,
+                    onComplete: function() {
+                        player.invulnerable = false;
+                    },
+                    onCompleteScope: this
+                });
+            }
+
+
+            function restartGame(game) {
+                game.scene.restart();
+            }
+        </script>
+    </body>
+
+</html>
