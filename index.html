@@ -2,7 +2,7 @@
 <html lang="eng">
     <head>
         <meta charset="UTF-8"/>
-        <title>Phaser Platformer</title>
+        <title>GummyArcade🍬</title>
         <script src="phaser.min.js"></script>
     </head>
 
@@ -471,6 +471,7 @@
 
                         if(player.hearts <= 0) {
                             player.disableBody(false,false);
+                            player.setTint(0xff8888);
 
                             var tween = this.tweens.add({
                                 targets: player,
@@ -489,12 +490,13 @@
                             });
                         }
                         else{
-                            player.body.velocity.x= 0;
-                            player.body.velocity.y= -220;
+                            player.body.velocity.x= -player.body.velocity.x;
+                            player.body.velocity.y= -200;
+                            player.setTint(0xff8888);
 
                             var tween = this. tweens.add({
                                 targets:player,
-                                alpha: 0.3,
+                                //alpha: 0.3,
                                 ease: 'Linear',
                                 duration: 200,
                                 onCompleteScope: this
@@ -508,9 +510,10 @@
 
             function playerVulnerable(game) {
                 //tween player back to 100% opacity and reset invulnerability flag
+                player.setTint(0xffffff);
                 var death = game.tweens.add({
                     targets: player,
-                    alpha: 1,
+                    //alpha: 1,
                     ease: 'Linear',
                     duration: 200,
                     onComplete: function() {
