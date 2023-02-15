@@ -64,7 +64,7 @@
                 this.load.spritesheet('baddie', 'baddie.png', {frameWidth: 32, frameHeight: 26});
                 this.load.image('heart', 'heart.png');
                 this.load.image('heart-filled', 'heart-filled.png');
-                this.load.spritesheet('hero', 'dude.png',{frameWidth: 32, frameHeight:48});
+                this.load.spritesheet('hero', 'dude.png',{frameWidth: 40, frameHeight:34});
             
             }
 
@@ -205,20 +205,20 @@
                 //set the animations for the player
                 this.anims.create({
                     key:"left",
-                    frames: this.anims.generateFrameNumbers("hero", {start:0, end:3}),
+                    frames: this.anims.generateFrameNumbers("hero", {start:0, end:5}),
                     frameRate: 10,
                     repeat: -1
                 });
 
                 this.anims.create({
                     key: "turn",
-                    frames:[{key: "hero", frame:4}],
+                    frames:[{key: "hero", frame:6}],
                     framerate:20
                 });
                 
                 this.anims.create({
                     key:"right",
-                    frames: this.anims.generateFrameNumbers("hero", {start:5, end:8}),
+                    frames: this.anims.generateFrameNumbers("hero", {start:7, end:12}),
                     frameRate: 10,
                     repeat: -1
                 });
